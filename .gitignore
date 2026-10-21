@@ -1,0 +1,6 @@
+node_modules/
+DESIGN_GUIDELINES.md
+.chrome-test-profile/
+tmp/
+dist/
+*.tsbuildinfo
