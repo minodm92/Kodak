@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, ArrowUpRight, Menu, X } from 'lucide-react';
+import { ArrowRight, ArrowUpRight, Menu, X } from 'lucide-react';
 
 const A = '/assets/';
 
@@ -53,12 +53,67 @@ function Header() {
 }
 
 function Hero() {
-  return <section id="top" className="hero">
+  const hero = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    const root = hero.current;
+    if (!root || !matchMedia('(min-width: 1024px) and (prefers-reduced-motion: no-preference)').matches) return;
+
+    const cards = Array.from(root.querySelectorAll<HTMLElement>('.hero-card-tilt'));
+    const move = (event: PointerEvent) => {
+      const x = (event.clientX - innerWidth / 2) / (innerWidth / 2);
+      const y = (event.clientY - innerHeight / 2) / (innerHeight / 2);
+      cards.forEach(card => {
+        const depth = Number(card.dataset.depth ?? 1);
+        card.style.setProperty('--pointer-x', `${x * 60 * depth}px`);
+        card.style.setProperty('--pointer-y', `${y * 60 * depth}px`);
+      });
+    };
+    const reset = () => cards.forEach(card => {
+      card.style.setProperty('--pointer-x', '0px');
+      card.style.setProperty('--pointer-y', '0px');
+    });
+
+    root.addEventListener('pointermove', move);
+    root.addEventListener('pointerleave', reset);
+    return () => {
+      root.removeEventListener('pointermove', move);
+      root.removeEventListener('pointerleave', reset);
+    };
+  }, []);
+
+  const cards = [
+    { className: 'hero-cap', image: 'hero-cap.png', alt: 'Kodak 모자를 착용한 모델', delay: 0, amp: 16, duration: 4.2, floatRotation: 1.8, rotateX: -4, rotateY: 5, depth: 1 },
+    { className: 'hero-store', image: 'hero-store.png', alt: 'Kodak 매장 라이프스타일', delay: .08, amp: 13, duration: 5.1, floatRotation: -1.6, rotateX: 5, rotateY: -4, depth: .55 },
+    { className: 'hero-detail', image: 'hero-detail.png', alt: 'Kodak 의류 디테일', delay: .16, amp: 19, duration: 4.6, floatRotation: 2.2, rotateX: -6, rotateY: -5, depth: .8 },
+    { className: 'hero-model', image: 'hero-model.png', alt: 'Kodak 의류를 입은 모델', delay: .24, amp: 12, duration: 3.8, floatRotation: -2, rotateX: 4, rotateY: 6, depth: .4 },
+  ];
+
+  return <section id="top" className="hero" ref={hero}>
     <Header />
-    <img className="hero-photo hero-cap" src={`${A}hero-cap.png`} alt="Kodak 모자를 착용한 모델" />
-    <img className="hero-photo hero-model" src={`${A}hero-model.png`} alt="Kodak 의류를 입은 모델" />
-    <img className="hero-photo hero-store" src={`${A}hero-store.png`} alt="Kodak 매장 라이프스타일" />
-    <img className="hero-photo hero-detail" src={`${A}hero-detail.png`} alt="Kodak 의류 디테일" />
+    <div className="hero-images" aria-hidden="true">
+      {cards.map(card => <div
+        className={`hero-photo hero-card ${card.className}`}
+        key={card.image}
+        style={{
+          '--rise-delay': `${card.delay}s`,
+          '--float-delay': `${1.5 + card.delay}s`,
+          '--float-y': `${card.amp}px`,
+          '--float-duration': `${card.duration}s`,
+          '--float-rotation': `${card.floatRotation}deg`,
+          '--rotate-x': `${card.rotateX}deg`,
+          '--rotate-y': `${card.rotateY}deg`,
+        } as React.CSSProperties}
+      >
+        <div className="hero-card-rise">
+          <div className="hero-card-float">
+            <div className="hero-card-tilt" data-depth={card.depth}>
+              <img src={`${A}${card.image}`} alt={card.alt} />
+            </div>
+          </div>
+        </div>
+      </div>)}
+    </div>
     <div className="hero-title"><h1><span>KODAK</span><span>APPAREL</span></h1><p>Make something Kodak</p></div>
     <a className="scroll-cue" href="#new"><span>SCROLL</span><i /></a>
   </section>;
@@ -69,24 +124,35 @@ function Dots({ count, active, onChange }: { count: number; active: number; onCh
 }
 
 function PromoCarousel() {
-  const [active, setActive] = useState(0);
+  const [active, setActive] = useState(1);
   const [paused, setPaused] = useState(false);
   const startX = useRef(0);
-  useEffect(() => { if (paused) return; const id = window.setInterval(() => setActive(v => (v + 1) % promos.length), 5000); return () => clearInterval(id); }, [paused]);
-  const move = (dir: number) => setActive(v => (v + dir + promos.length) % promos.length);
+  const displayPromos = [promos[2], promos[0], promos[1]];
+  useEffect(() => { if (paused) return; const id = window.setInterval(() => setActive(v => (v + 1) % displayPromos.length), 5000); return () => clearInterval(id); }, [paused, displayPromos.length]);
+  const move = (dir: number) => setActive(v => (v + dir + displayPromos.length) % displayPromos.length);
   return <section id="new" className="promo-section" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)} onTouchStart={e => { startX.current = e.touches[0].clientX; setPaused(true); }} onTouchEnd={e => { const d = e.changedTouches[0].clientX - startX.current; if (Math.abs(d) > 50) move(d > 0 ? -1 : 1); setPaused(false); }}>
-    <h2 data-reveal>MAKE EVERY <strong>MOMENT</strong> KODAK</h2>
+    <h2>MAKE EVERY <strong>MOMENT</strong> KODAK</h2>
     <div className="promo-viewport">
       <div className="promo-track" style={{ '--slide': active } as React.CSSProperties}>
-        {promos.map((p, i) => <article className={`promo-card ${active === i ? 'active' : ''}`} key={p.label} aria-hidden={active !== i}>
-          <div className="promo-copy"><div><small>{p.label}</small><b>{p.sub}</b></div><h3>{p.title}</h3><p>{p.body}</p><button className="pill">제품 보러가기 <ArrowUpRight size={17} /></button></div>
+        {displayPromos.map((p, i) => <article className={`promo-card ${active === i ? 'active' : ''}`} key={p.label} aria-hidden={active !== i}>
+          <div className="promo-copy"><div><small>{p.label}</small><b>{p.sub}</b></div><h3>{p.title}</h3><p>{p.body}</p><button className="pill">제품 보러가기</button></div>
           <img src={`${A}${p.image}`} alt="" />
         </article>)}
       </div>
     </div>
-    <button className="carousel-arrow left" onClick={() => move(-1)} aria-label="이전 프로모션"><ArrowLeft /></button>
-    <button className="carousel-arrow right" onClick={() => move(1)} aria-label="다음 프로모션"><ArrowRight /></button>
-    <Dots count={promos.length} active={active} onChange={setActive} />
+    <div className="promo-pagination">
+      <button onClick={() => move(-1)} aria-label="이전 프로모션"><img src={`${A}promo-prev.svg`} alt="" /></button>
+      <div className="promo-pages" role="group" aria-label="프로모션 선택">
+        {displayPromos.map((promo, index) => <button
+          key={promo.image}
+          className={`promo-page-dot ${active === index ? 'active' : ''}`}
+          aria-label={`${index + 1}번째 프로모션: ${promo.label}`}
+          aria-current={active === index ? 'true' : undefined}
+          onClick={() => setActive(index)}
+        />)}
+      </div>
+      <button onClick={() => move(1)} aria-label="다음 프로모션"><img src={`${A}promo-next.svg`} alt="" /></button>
+    </div>
   </section>;
 }
 
@@ -183,16 +249,22 @@ function StorySequence() {
     };
   }, []);
 
-  const imageScale = phase(progress, .105, .455);
-  const gapTransition = phase(progress, .075, .105);
+  const timeline = progress * 1.9;
+  const imageScale = phase(timeline, .105, .455);
+  const gapTransition = phase(timeline, .075, .105);
   const textGap = gapTransition * 15;
   const initialSpace = (1 - gapTransition) * .125;
-  const whiteCopyIn = phase(progress, .44, .54) * (1 - phase(progress, .675, .735));
-  const grayReveal = phase(progress, .69, .84);
-  const grayCopyIn = phase(progress, .79, .89);
-  const current = progress < .15 ? 0 : progress < .45 ? 1 : progress < .72 ? 2 : 3;
+  const whiteCopyIn = phase(timeline, .44, .54) * (1 - phase(timeline, .675, .735));
+  const grayReveal = phase(timeline, 1.59, 1.74);
+  const grayCopyIn = phase(timeline, 1.69, 1.79);
+  const colors = [
+    { name: 'blue', description: <>맑고 청량한 블루 컬러로 일상에 산뜻함을 더하고,<br />코닥만의 빈티지한 감성으로 특별한 순간을 완성해 보세요.</> },
+    { name: 'yellow', description: <>보기만 해도 기분 좋아지는 선명한 옐로 컬러,<br />코닥의 유쾌한 에너지로 평범한 하루를 특별하게 물들여 보세요.</> },
+    { name: 'red', description: <>시선을 사로잡는 강렬한 레드 컬러로 일상에 에너지를 더하고,<br />코닥만의 대담한 감성으로 개성 있는 스타일을 완성해 보세요.</> },
+  ];
+  const current = timeline < .15 ? 0 : timeline < .45 ? 1 : timeline < .69 ? 2 : Math.min(6, 3 + Math.floor((timeline - .69) / .3));
 
-  return <section className="story" ref={section} aria-label="Kodak color story">
+  return <section className="story story-sequence" ref={section} aria-label="Kodak color story">
     <div className="story-sticky">
       <div className="story-intro story-intro-split">
         <p>
@@ -208,7 +280,20 @@ function StorySequence() {
         </div>
       </div>
 
-      <article className="story-slide story-gray" style={{ clipPath: `inset(${(1 - grayReveal) * 100}% 0 0 0)`, pointerEvents: grayReveal > .9 ? 'auto' : 'none' }} aria-hidden={grayReveal < .01}>
+      {colors.map((color, index) => {
+        const start = .69 + index * .3;
+        const reveal = phase(timeline, start, start + .15);
+        const copy = phase(timeline, start + .10, start + .20) * (1 - phase(timeline, start + .285, start + .345));
+        return <article key={color.name} className={`story-slide story-color story-${color.name}`}
+          style={{ zIndex: 4 + index, clipPath: `inset(${(1 - reveal) * 100}% 0 0 0)` }} aria-hidden={reveal < .01 || timeline > start + .45}>
+          <img src={`${A}story-${color.name}.png`} alt={`Kodak ${color.name} collection`} />
+          <div className="story-copy story-color-copy" style={{ opacity: copy, transform: `translate3d(-50%,${(1 - copy) * 28}px,0)` }}>
+            <h2>KODAK</h2><p>{color.description}</p>
+          </div>
+        </article>;
+      })}
+
+      <article className="story-slide story-gray" style={{ zIndex: 7, clipPath: `inset(${(1 - grayReveal) * 100}% 0 0 0)`, pointerEvents: grayReveal > .9 ? 'auto' : 'none' }} aria-hidden={grayReveal < .01}>
         <img src={`${A}story-gray.png`} alt="Gray Kodak collection" />
         <div className="story-copy" style={{ opacity: grayCopyIn, transform: `translate3d(-50%,${(1 - grayCopyIn) * 28}px,0)` }}>
           <h2>KODAK</h2><p>모던하고 시크하게 데일리로 입기 좋은 그레이 컬러<br />무심하지만 매력적인 이미지를 만들어보세요</p><button className="pill">제품 보러가기</button>
@@ -216,21 +301,32 @@ function StorySequence() {
       </article>
 
       <div className="story-progress" aria-hidden><span style={{ transform: `scaleX(${progress})` }} /></div>
-      <div className="story-steps" aria-hidden>{[0, 1, 2, 3].map(i => <i className={i === current ? 'active' : ''} key={i} />)}</div>
+      <div className="story-steps" aria-hidden>{Array.from({ length: 7 }, (_, i) => <i className={i === current ? 'active' : ''} key={i} />)}</div>
     </div>
   </section>;
 }
 
 function Weekly() {
-  const scroller = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState(0);
-  const scrollTo = (i: number) => { setActive(i); scroller.current?.children[i]?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' }); };
-  return <section id="weekly" className="weekly section-pad">
-    <h2 data-reveal>KODAK <strong>WEEKLY PICKS</strong></h2>
-    <div className="weekly-grid" ref={scroller} onScroll={e => { const el = e.currentTarget; setActive(Math.round(el.scrollLeft / Math.max(1, el.clientWidth * .82))); }}>
-      {weekly.map(([img, title], i) => <article key={img} data-reveal style={{ '--delay': `${i * 90}ms` } as React.CSSProperties}><div><img src={`${A}${img}`} alt={title} /></div><p>{title}</p></article>)}
+  const startX = useRef(0);
+  const move = (direction: number) => setActive(value => (value + direction + weekly.length) % weekly.length);
+  return <section id="weekly" className="weekly section-pad" aria-label="Kodak Weekly Picks">
+    <h2>KODAK <strong>WEEKLY</strong> PICKS</h2>
+    <div className="weekly-viewport" onTouchStart={event => { startX.current = event.touches[0].clientX; }} onTouchEnd={event => {
+      const distance = event.changedTouches[0].clientX - startX.current;
+      if (Math.abs(distance) > 50) move(distance > 0 ? -1 : 1);
+    }}>
+      <div className="weekly-grid" style={{ '--weekly-slide': active } as React.CSSProperties}>
+        {weekly.map(([img, title], index) => <article key={img} aria-label={`${index + 1} / ${weekly.length}`}><div><img src={`${A}${img}`} alt={title} /></div><p>{title}</p></article>)}
+      </div>
     </div>
-    <Dots count={weekly.length} active={Math.min(active, weekly.length - 1)} onChange={scrollTo} />
+    <div className="weekly-pagination">
+      <button onClick={() => move(-1)} aria-label="이전 Weekly Pick"><img src={`${A}promo-prev.svg`} alt="" /></button>
+      <div className="weekly-pages" role="group" aria-label="Weekly Pick 선택">
+        {weekly.map(([img], index) => <button key={img} className={index === active ? 'active' : ''} onClick={() => setActive(index)} aria-label={`${index + 1}번째 Weekly Pick`} aria-current={index === active ? 'true' : undefined} />)}
+      </div>
+      <button onClick={() => move(1)} aria-label="다음 Weekly Pick"><img src={`${A}promo-next.svg`} alt="" /></button>
+    </div>
   </section>;
 }
 
@@ -278,179 +374,185 @@ function EditorialMotion() {
 
 function EditorialScroll() {
   const section = useRef<HTMLElement>(null);
-  const releaseTimer = useRef(0);
-  const inputQuietTimer = useRef(0);
-  const animationFrame = useRef(0);
-  const previousScrollY = useRef(0);
-  const touchStartY = useRef(0);
-  const releaseReady = useRef(false);
-  const direction = useRef<'forward' | 'reverse'>('forward');
-  const motionStateRef = useRef<'idle' | 'pinned' | 'running' | 'holding' | 'released'>('idle');
-  const [motionState, setMotionState] = useState<'idle' | 'pinned' | 'running' | 'holding' | 'released'>('idle');
   const [showNext, setShowNext] = useState(false);
+  const [running, setRunning] = useState(false);
+  const [holding, setHolding] = useState(false);
 
   useEffect(() => {
-    previousScrollY.current = window.scrollY;
+    const root = section.current;
+    if (!root) return;
+    const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+    let target = false;
+    let queuedTarget = false;
+    let animating = false;
+    let awaitingGesture = false;
+    let holdDeadline = 0;
+    let lastInputAt = -Infinity;
+    let completionFrame = 0;
+    let transitionVersion = 0;
+    let previousY = window.scrollY;
+    let touchY = 0;
+    let freshTouch = false;
+    const gestureGap = 220;
+    const maxHoldDuration = 320;
 
-    const snapScrollTo = (top: number) => {
-      const root = document.documentElement;
-      const previousBehavior = root.style.scrollBehavior;
-      root.style.scrollBehavior = 'auto';
-      window.scrollTo(0, top);
-      root.style.scrollBehavior = previousBehavior;
-      previousScrollY.current = top;
-    };
+    // Keep the panel in the same sticky coordinate system throughout the transition.
+    const play = (next: boolean) => {
+      queuedTarget = next;
+      if (animating || next === target) return;
+      target = next;
+      awaitingGesture = false;
+      setHolding(false);
+      setShowNext(next);
+      if (reducedMotion.matches) return;
+      animating = true;
+      setRunning(true);
+      const version = ++transitionVersion;
+      const finish = () => {
+        if (version !== transitionVersion) return;
+        animating = false;
+        setRunning(false);
+        if (queuedTarget !== target) {
+          play(queuedTarget);
+        } else {
+          // Briefly absorb the inertial tail, but never require the user to
+          // stop scrolling. This deadline cannot be extended by more input.
+          awaitingGesture = true;
+          lastInputAt = performance.now();
+          holdDeadline = lastInputAt + maxHoldDuration;
+          setHolding(true);
+        }
+      };
 
-    const pinAtBoundary = (nextDirection: 'forward' | 'reverse') => {
-      if (!section.current) return;
-      const top = section.current.offsetTop;
-      const boundary = nextDirection === 'forward'
-        ? top
-        : top + section.current.offsetHeight - window.innerHeight;
-      snapScrollTo(boundary);
-      direction.current = nextDirection;
-      motionStateRef.current = 'pinned';
-      setMotionState('pinned');
-    };
-
-    const waitForFreshScroll = () => {
-      releaseReady.current = false;
-      clearTimeout(inputQuietTimer.current);
-      inputQuietTimer.current = window.setTimeout(() => {
-        releaseReady.current = true;
-      }, 180);
-    };
-
-    const playAnimation = () => {
-      if (motionStateRef.current !== 'pinned') return;
-
-      animationFrame.current = requestAnimationFrame(() => {
-        motionStateRef.current = 'running';
-        setShowNext(direction.current === 'forward');
-        setMotionState('running');
+      // React must commit the new class and the browser must start its CSS
+      // transitions before their real completion can be observed.
+      const waitForCompletion = () => {
+        if (version !== transitionVersion) return;
+        const panel = root.querySelector<HTMLElement>('.editorial-trigger');
+        if (!panel) return;
+        const committed = panel.classList.contains('show-next') === next;
+        const transitions = Array.from(panel.querySelectorAll<HTMLElement>('.editorial-reveal, .editorial-center-next'))
+          .flatMap(layer => layer.getAnimations());
+        const unfinished = transitions.some(animation => animation.playState !== 'finished' && animation.playState !== 'idle');
+        if (!committed || unfinished) {
+          completionFrame = requestAnimationFrame(waitForCompletion);
+        } else {
+          finish();
+        }
+      };
+      completionFrame = requestAnimationFrame(() => {
+        completionFrame = requestAnimationFrame(waitForCompletion);
       });
+    };
 
-      // 애니메이션 종료 후에는 시간 지연 대신 30vh의 추가 스크롤 구간을 유지한다.
-      releaseTimer.current = window.setTimeout(() => {
-        motionStateRef.current = 'holding';
-        setMotionState('holding');
-        waitForFreshScroll();
-      }, 1350);
+    const isPinned = () => {
+      const rect = root.getBoundingClientRect();
+      return rect.top <= 1 && rect.bottom >= innerHeight - 1;
     };
 
     const onScroll = () => {
-      if (!section.current) return;
-      const currentScrollY = window.scrollY;
-      const rect = section.current.getBoundingClientRect();
-      const scrollDelta = currentScrollY - previousScrollY.current;
-      const scrollingDown = scrollDelta > 0;
-      const scrollingUp = scrollDelta < 0;
-      previousScrollY.current = currentScrollY;
-
-      if (motionStateRef.current === 'holding' && releaseReady.current && direction.current === 'forward' && rect.bottom <= window.innerHeight + 1) {
-        motionStateRef.current = 'released';
-        setMotionState('released');
-        return;
+      const delta = scrollY - previousY;
+      previousY = scrollY;
+      // Scrollbar dragging, anchor navigation and viewport changes must never
+      // leave a wheel lock active after the panel has left its sticky range.
+      if ((animating || awaitingGesture) && !isPinned()) {
+        cancelAnimationFrame(completionFrame);
+        transitionVersion++;
+        animating = false;
+        awaitingGesture = false;
+        queuedTarget = target;
+        setRunning(false);
+        setHolding(false);
       }
+      if (delta && !animating && !awaitingGesture && isPinned()) play(delta > 0);
+    };
 
-      if (motionStateRef.current === 'holding' && releaseReady.current && direction.current === 'reverse' && rect.top >= -1) {
-        motionStateRef.current = 'idle';
-        setMotionState('idle');
-        return;
+    const consumeInput = (next: boolean, canRelease = true) => {
+      const now = performance.now();
+      const freshGesture = canRelease && now - lastInputAt >= gestureGap;
+      lastInputAt = now;
+      if (animating) {
+        queuedTarget = next;
+        return true;
       }
-
-      const crossedBottomUpward = rect.bottom >= window.innerHeight - 1
-        && rect.bottom <= window.innerHeight + Math.abs(scrollDelta) + 2;
-      if (motionStateRef.current === 'released' && scrollingUp && crossedBottomUpward && rect.top < 0) {
-        pinAtBoundary('reverse');
-        return;
+      if (awaitingGesture) {
+        if (next !== target) {
+          play(next);
+          return true;
+        }
+        if (!freshGesture && now < holdDeadline) return true;
+        awaitingGesture = false;
+        setHolding(false);
       }
-
-      if (motionStateRef.current !== 'idle' || !scrollingDown || rect.top > 1 || rect.bottom <= window.innerHeight * .5) return;
-
-      pinAtBoundary('forward');
+      if (isPinned() && next !== target) {
+        play(next);
+        return true;
+      }
+      return false;
     };
 
     const onWheel = (event: WheelEvent) => {
-      if (motionStateRef.current === 'holding' && !releaseReady.current) {
-        event.preventDefault();
-        waitForFreshScroll();
+      if (event.ctrlKey || Math.abs(event.deltaY) <= Math.abs(event.deltaX) || !event.deltaY) return;
+      const next = event.deltaY > 0;
+      if (animating || awaitingGesture || isPinned()) {
+        if (consumeInput(next)) event.preventDefault();
         return;
       }
 
-      if (section.current && motionStateRef.current === 'idle' && event.deltaY > 0) {
-        const rect = section.current.getBoundingClientRect();
-        const crossingTop = rect.top <= Math.max(2, Math.abs(event.deltaY)) && rect.bottom > window.innerHeight * .5;
-        if (crossingTop) {
-          event.preventDefault();
-          pinAtBoundary('forward');
-          return;
-        }
+      // Consume only the distance to the crossed edge, never snap back from outside it.
+      const rect = root.getBoundingClientRect();
+      const delta = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? innerHeight : 1);
+      const distance = next ? rect.top : rect.bottom - innerHeight;
+      const crosses = next
+        ? distance > 0 && distance <= delta
+        : distance < 0 && distance >= delta;
+      if (crosses && next !== target) {
+        event.preventDefault();
+        lastInputAt = performance.now();
+        window.scrollBy({ top: distance, behavior: 'instant' });
+        previousY = scrollY;
+        play(next);
       }
-
-      if (section.current && motionStateRef.current === 'released' && event.deltaY < 0) {
-        const rect = section.current.getBoundingClientRect();
-        const distanceToBottom = window.innerHeight - rect.bottom;
-        const crossingBottom = distanceToBottom >= -1
-          && distanceToBottom <= Math.max(2, Math.abs(event.deltaY))
-          && rect.top < 0;
-        if (crossingBottom) {
-          event.preventDefault();
-          pinAtBoundary('reverse');
-          return;
-        }
-      }
-
-      if (motionStateRef.current !== 'pinned' && motionStateRef.current !== 'running') return;
-      event.preventDefault();
-      if (motionStateRef.current === 'running') waitForFreshScroll();
-      if ((direction.current === 'forward' && event.deltaY > 0) || (direction.current === 'reverse' && event.deltaY < 0)) playAnimation();
     };
 
     const onTouchStart = (event: TouchEvent) => {
-      touchStartY.current = event.touches[0]?.clientY ?? 0;
+      touchY = event.touches[0]?.clientY ?? 0;
+      freshTouch = true;
     };
-
     const onTouchMove = (event: TouchEvent) => {
-      if (motionStateRef.current === 'holding' && !releaseReady.current) {
-        event.preventDefault();
-        waitForFreshScroll();
-        return;
+      const nextY = event.touches[0]?.clientY ?? touchY;
+      const delta = touchY - nextY;
+      touchY = nextY;
+      if (Math.abs(delta) < 2) return;
+      if (animating || awaitingGesture || isPinned()) {
+        if (consumeInput(delta > 0, freshTouch)) event.preventDefault();
       }
-      if (motionStateRef.current !== 'pinned' && motionStateRef.current !== 'running') return;
-      const currentY = event.touches[0]?.clientY ?? touchStartY.current;
-      event.preventDefault();
-      if (motionStateRef.current === 'running') waitForFreshScroll();
-      const delta = touchStartY.current - currentY;
-      if ((direction.current === 'forward' && delta > 8) || (direction.current === 'reverse' && delta < -8)) playAnimation();
+      freshTouch = false;
     };
-
     const onKeyDown = (event: KeyboardEvent) => {
-      if (motionStateRef.current === 'holding' && !releaseReady.current) {
-        if (['ArrowDown', 'PageDown', ' ', 'End', 'ArrowUp', 'PageUp', 'Home'].includes(event.key)) {
-          event.preventDefault();
-          waitForFreshScroll();
-        }
-        return;
+      const element = event.target as HTMLElement | null;
+      if (element?.closest('input,textarea,select,[contenteditable="true"]') || event.ctrlKey || event.metaKey || event.altKey) return;
+      const forward = ['ArrowDown', 'PageDown', ' '].includes(event.key) && !event.shiftKey;
+      const reverse = ['ArrowUp', 'PageUp'].includes(event.key) || (event.key === ' ' && event.shiftKey);
+      if (!forward && !reverse) return;
+      if (animating || awaitingGesture || isPinned()) {
+        if (consumeInput(forward, !event.repeat)) event.preventDefault();
       }
-      if (motionStateRef.current !== 'pinned' && motionStateRef.current !== 'running') return;
-      const forwardKey = ['ArrowDown', 'PageDown', ' ', 'End'].includes(event.key);
-      const reverseKey = ['ArrowUp', 'PageUp', 'Home'].includes(event.key);
-      if ((direction.current === 'forward' && !forwardKey) || (direction.current === 'reverse' && !reverseKey)) return;
-      event.preventDefault();
-      if (motionStateRef.current === 'running') waitForFreshScroll();
-      playAnimation();
     };
 
+    // Restore the correct image on a reload below this section without moving the page.
+    if (root.getBoundingClientRect().bottom <= innerHeight) {
+      target = queuedTarget = true;
+      setShowNext(true);
+    }
     addEventListener('scroll', onScroll, { passive: true });
     addEventListener('wheel', onWheel, { passive: false });
     addEventListener('touchstart', onTouchStart, { passive: true });
     addEventListener('touchmove', onTouchMove, { passive: false });
     addEventListener('keydown', onKeyDown);
     return () => {
-      cancelAnimationFrame(animationFrame.current);
-      clearTimeout(releaseTimer.current);
-      clearTimeout(inputQuietTimer.current);
+      cancelAnimationFrame(completionFrame);
+      transitionVersion++;
       removeEventListener('scroll', onScroll);
       removeEventListener('wheel', onWheel);
       removeEventListener('touchstart', onTouchStart);
@@ -459,10 +561,8 @@ function EditorialScroll() {
     };
   }, []);
 
-  const pinned = motionState === 'pinned' || motionState === 'running';
-
-  return <section className={`editorial-pin editorial-trigger-pin ${motionState === 'released' ? 'is-released' : ''}`} ref={section} aria-label="Kodak editorial styles">
-    <div className={`editorial editorial-motion editorial-trigger ${pinned ? 'is-pinned' : ''} ${showNext ? 'show-next' : ''}`}>
+  return <section className="editorial-pin editorial-trigger-pin" ref={section} data-motion-state={running ? 'running' : holding ? 'holding' : 'settled'} aria-label="Kodak editorial styles">
+    <div className={`editorial editorial-motion editorial-trigger ${showNext ? 'show-next' : ''}`}>
       <div className="editorial-half editorial-half-left editorial-base"><img src={`${A}editorial-a-left.png`} alt="Monthly Style collection" /><span>Monthly Style</span></div>
       <div className="editorial-half editorial-half-right editorial-base"><img src={`${A}editorial-a-right.png`} alt="Lettering Terry styling" /><span>Lettering Terry</span></div>
       <div className="editorial-half editorial-half-left editorial-reveal editorial-reveal-left"><img src={`${A}editorial-b-left.png`} alt="Hirono red knit collection" /></div>
